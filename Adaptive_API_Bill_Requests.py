@@ -33,20 +33,19 @@ load_dotenv('creds.env')
 
 def generate_date_range(start_date, end_date, increment='month'):
     """
-    Yields dates dates within a range based on the specified increment.
+    Yields dates within a range based on the specified increment.
     
     Args:
     start_date (datetime): Start of the date range.
     end_date (datetime): End of the date range.
-    increment (str): Time increment ('month', 'week', 'day', '4hour', 'hour', '15min', '3min').
+    increment (str): Time increment ('month', 'week', 'day', '4hour', 'hour', '15min', '3min', '1min', '30sec', '10sec', '3sec', '1sec').
     
     Yields:
     datetime: Next date in the sequence.
     """
-    # Generates dates within a range based on the specified increment
     current_date = start_date
     while current_date < end_date:
-        yield current_date # Yield allows the function to continue previous granularity date range
+        yield current_date
         if increment == 'month':
             if current_date.month == 12:
                 current_date = current_date.replace(year=current_date.year + 1, month=1, day=1)
@@ -64,12 +63,23 @@ def generate_date_range(start_date, end_date, increment='month'):
             current_date += timedelta(minutes=15)
         elif increment == '3min':
             current_date += timedelta(minutes=3)
+        elif increment == '1min':
+            current_date += timedelta(minutes=1)
+        elif increment == '30sec':
+            current_date += timedelta(seconds=30)
+        elif increment == '10sec':
+            current_date += timedelta(seconds=10)
+        elif increment == '3sec':
+            current_date += timedelta(seconds=3)
+        elif increment == '1sec':
+            current_date += timedelta(seconds=1)
+        
         current_date = min(current_date, end_date)
-
 
 def congress_api_call(start_date, end_date, api_key, limit=250):
     """
     Makes a single API call to Congress.gov for bills within a date range.
+    Includes a rate limiter to prevent exceeding API limits.
     
     Args:
     start_date (datetime): Start of the query range.
@@ -80,7 +90,6 @@ def congress_api_call(start_date, end_date, api_key, limit=250):
     Returns:
     DataFrame: Bills data with query time range.
     """
-    # Makes a single API call to Congress.gov
     bill_url = f'https://api.congress.gov/v3/bill?fromDateTime={start_date.strftime("%Y-%m-%dT%H:%M:00Z")}&toDateTime={end_date.strftime("%Y-%m-%dT%H:%M:00Z")}&limit={limit}&api_key={api_key}'
     bill_pull = requests.get(bill_url).json()
     df = pd.DataFrame(bill_pull.get('bills', []))
@@ -89,10 +98,9 @@ def congress_api_call(start_date, end_date, api_key, limit=250):
         df['query_end_time'] = end_date
     
     # Rate limiter
-    time.sleep(.75)
-
+    time.sleep(0.75)
+    
     return df
-
 
 def adaptive_api_call(start_date, end_date, api_key, response_limit=250):
     """
@@ -107,8 +115,7 @@ def adaptive_api_call(start_date, end_date, api_key, response_limit=250):
     Returns:
     DataFrame: Compiled bill data across all granularities.
     """
-    # Main function to adaptively call the API based on data density
-    granularity_levels = ['month', 'week', 'day', '4hour', 'hour', '15min', '3min']
+    granularity_levels = ['month', 'week', 'day', '4hour', 'hour', '15min', '3min', '1min', '30sec', '10sec', '3sec', '1sec']
 
     def recursive_call(start, end, granularity_index, indent=""):
         granularity = granularity_levels[granularity_index]
@@ -116,22 +123,18 @@ def adaptive_api_call(start_date, end_date, api_key, response_limit=250):
         all_data = pd.DataFrame()
         
         for i, date in enumerate(date_range):
-            # Determine the end date for this iteration
             if i + 1 < len(date_range):
                 next_date = date_range[i + 1]
             else:
                 next_date = end
             
-            # Make the API call
             data = congress_api_call(date, next_date, api_key, limit=response_limit)
             
-            # Log the results
-            if granularity in ['4hour', 'hour', '15min', '3min']:
-                print(f"{indent}{granularity.capitalize()} {date.strftime('%Y-%m-%d %H:%M')}: {len(data)} bills")
+            if granularity in ['4hour', 'hour', '15min', '3min', '1min', '30sec', '10sec', '3sec', '1sec']:
+                print(f"{indent}{granularity.capitalize()} {date.strftime('%Y-%m-%d %H:%M:%S')}: {len(data)} bills")
             else:
                 print(f"{indent}{granularity.capitalize()} {date.strftime('%Y-%m-%d')}: {len(data)} bills")
             
-            # If limit reached and finer granularity available, drill down
             if len(data) >= response_limit and granularity_index < len(granularity_levels) - 1:
                 print(f"{indent}Limit reached, drilling down...")
                 finer_data = recursive_call(date, next_date, granularity_index + 1, indent + "  ")
@@ -139,7 +142,6 @@ def adaptive_api_call(start_date, end_date, api_key, response_limit=250):
             else:
                 all_data = pd.concat([all_data, data], ignore_index=True)
         
-        # Log total bills for this granularity
         print(f"{indent}Total for {granularity}: {len(all_data)} bills")
         return all_data
 
