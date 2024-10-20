@@ -1,0 +1,3 @@
+## Ignore .env file to prevent secret data from being tracked by Git
+## Last update: 10/20/24 by dforcade
+cong_api_keys.env
