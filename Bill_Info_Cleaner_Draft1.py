@@ -152,7 +152,7 @@ def get_cosponsor_info(cosponsors_str):
 ## Apply the function using swifter
 df[['cosponsor_count', 'cosponsor_bioguideIds', 'cosponsor_names']] = df['cosponsors'].swifter.apply(get_cosponsor_info)
 
-# Handle missing data
+## Handle missing data
 df['cosponsor_count'] = df['cosponsor_count'].fillna(0).astype(int)
 df['cosponsor_bioguideIds'] = df['cosponsor_bioguideIds'].fillna('NA')
 df['cosponsor_names'] = df['cosponsor_names'].fillna('NA')
@@ -239,7 +239,7 @@ def get_latest_summary_text(summaries_str):
             if not summaries_list:
                 return 'NA'
             
-            # Sort summaries by 'updateDate' or 'actionDate', descending
+            ## Sort summaries by 'updateDate' or 'actionDate', descending
             def get_date(summary):
                 return summary.get('updateDate', '') or summary.get('actionDate', '')
             
